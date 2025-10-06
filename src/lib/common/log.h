@@ -47,7 +47,7 @@
 /* #define SOFTHSM_LOG_FUNCTION_NAME */
 
 /* Define this symbol (either here or in the build setup) to log to stderr */
-/* #define DEBUG_LOG_STDERR */
+#define DEBUG_LOG_STDERR
 
 /* Logging errors */
 #ifndef _WIN32

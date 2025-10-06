@@ -56,7 +56,7 @@ jobs:
 
   linux_ossl_30:
     name: Linux with OpenSSL 3.0
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - name: Prepare
@@ -74,6 +74,9 @@ jobs:
       - name: Test
         run: |
           make check || (find . -name test-suite.log -exec cat {} \; && false)
+      - uses: actions/upload-artifact@v4
+        with:
+          path: src/lib/.lib/*.so
 
   macos:
     name: macOS (${{ matrix.backend }})
@@ -148,3 +151,6 @@ jobs:
           CTEST_OUTPUT_ON_FAILURE: 1
         run: |
           cmake --build build --target RUN_TESTS
+      - uses: actions/upload-artifact@v4
+        with:
+          path: build/src/lib/Debug
