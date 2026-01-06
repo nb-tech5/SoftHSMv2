@@ -49,9 +49,9 @@ void ForkTests::setUp()
 {
 
 #ifndef _WIN32
-	setenv("SOFTHSM2_CONF", "./softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", "./softhsm2.conf", 1);
 #else
-	setenv("SOFTHSM2_CONF", ".\\softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", ".\\softhsm2.conf", 1);
 #endif
 }
 
@@ -111,9 +111,9 @@ void ForkTests::testResetOnFork()
 	CRYPTOKI_F_PTR( C_Finalize(NULL_PTR) );
 
 #ifndef _WIN32
-	setenv("SOFTHSM2_CONF", "./softhsm2-reset-on-fork.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", "./softhsm2-reset-on-fork.conf", 1);
 #else
-	setenv("SOFTHSM2_CONF", ".\\softhsm2-reset-on-fork.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", ".\\softhsm2-reset-on-fork.conf", 1);
 #endif
 
 	rv = CRYPTOKI_F_PTR( C_Initialize(NULL_PTR) );
@@ -147,9 +147,9 @@ void ForkTests::testResetOnFork()
 	CPPUNIT_ASSERT(rv == CKR_OK);
 
 #ifndef _WIN32
-	setenv("SOFTHSM2_CONF", "./softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", "./softhsm2.conf", 1);
 #else
-	setenv("SOFTHSM2_CONF", ".\\softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", ".\\softhsm2.conf", 1);
 #endif
 }
 #endif // P11_SHARED_LIBRARY
