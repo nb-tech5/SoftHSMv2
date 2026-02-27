@@ -4,59 +4,17 @@ on:
   push:
     branches:
       - main
+    tags: ['*']
   pull_request:
 
 jobs:
-  linux_botan:
-    name: Linux with Botan
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Prepare
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y libcppunit-dev libbotan-2-dev p11-kit
-      - name: Build
-        env:
-          CXXFLAGS: -Werror -DBOTAN_NO_DEPRECATED_WARNINGS
-        run: |
-          ./autogen.sh
-          ./configure --with-crypto-backend=botan
-          make
-      - name: Test
-        run: |
-          make check || (find . -name test-suite.log -exec cat {} \; && false)
-
-  linux_ossl_1:
-    name: Linux with OpenSSL 1.1.1
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Prepare
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y libcppunit-dev p11-kit
-          # Replace installed OpenSSL with the supported version 1.1.1
-          curl -O http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb
-          curl -O http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl-dev_1.1.1f-1ubuntu2.24_amd64.deb
-          curl -O http://security.ubuntu.com/ubuntu/pool/main/o/openssl/openssl_1.1.1f-1ubuntu2.24_amd64.deb
-          sudo dpkg -i --force-confnew openssl_1.1.1f-1ubuntu2.24_amd64.deb \
-                                       libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb \
-                                       libssl-dev_1.1.1f-1ubuntu2.24_amd64.deb
-      - name: Build
-        env:
-          CXXFLAGS: -Werror
-        run: |
-          ./autogen.sh
-          ./configure --with-crypto-backend=openssl
-          make
-      - name: Test
-        run: |
-          make check || (find . -name test-suite.log -exec cat {} \; && false)
-
   linux_ossl_30:
     name: Linux with OpenSSL 3.0
-    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Prepare
@@ -68,42 +26,21 @@ jobs:
         # env:
         #   CXXFLAGS: -Werror
         run: |
+          sudo chmod +x autogen.sh
           ./autogen.sh
           ./configure --with-crypto-backend=openssl
           make
       - name: Test
         run: |
           make check || (find . -name test-suite.log -exec cat {} \; && false)
-      - uses: actions/upload-artifact@v4
+      - name: Prepare release
+        run: |
+          tar -cvzf libsofthsm2-${{ matrix.os }}.tgz -C src/lib/.libs libsofthsm2.so
+      - name: Stage Artifact
+        uses: actions/upload-artifact@v4
         with:
-          path: src/lib/.lib/*.so
-
-  macos:
-    name: macOS (${{ matrix.backend }})
-    runs-on: macos-14
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - backend: openssl
-            extra-options: --with-openssl=$(brew --prefix openssl@1.1)
-          - backend: botan
-            extra-options: --with-botan=$(brew --prefix botan@2)
-    steps:
-      - uses: actions/checkout@v4
-      - name: Prepare
-        run: |
-          brew install automake libtool cppunit botan@2
-      - name: Build
-        env:
-          CXXFLAGS: -Werror -DBOTAN_NO_DEPRECATED_WARNINGS
-        run: |
-          ./autogen.sh
-          ./configure --with-crypto-backend=${{ matrix.backend }} ${{ matrix.extra-options }}
-          make
-      - name: Test
-        run: |
-          make check || (find . -name test-suite.log -exec cat {} \; && false)
+          name: binaries-linux-${{ matrix.os }}
+          path: libsofthsm2-${{ matrix.os }}.tgz
 
   windows:
     name: Windows (${{ matrix.arch }}, ${{ matrix.backend }})
@@ -116,14 +53,6 @@ jobs:
             backend: openssl
             target-platform: x64
             build-options:
-          - arch: x64
-            backend: botan
-            target-platform: x64
-            build-options: -DENABLE_ECC=OFF -DENABLE_EDDSA=OFF
-          - arch: x86
-            backend: openssl
-            target-platform: Win32
-            build-options: -DENABLE_ECC=OFF -DENABLE_EDDSA=OFF
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
@@ -151,6 +80,35 @@ jobs:
           CTEST_OUTPUT_ON_FAILURE: 1
         run: |
           cmake --build build --target RUN_TESTS
-      - uses: actions/upload-artifact@v4
+      - name: Prepare release
+        run: |
+          tar -cvzf libsofthsm2-win-${{ matrix.arch }}-${{ matrix.backend }}.tgz -C build/src/lib/Debug *.dll
+      - name: Stage Artifact
+        uses: actions/upload-artifact@v4
         with:
-          path: build/src/lib/Debug
+          name: binaries-windows-${{ matrix.arch }}-${{ matrix.backend }}
+          path: libsofthsm2-win-${{ matrix.arch }}-${{ matrix.backend }}.tgz
+
+  release:
+    needs: [linux_ossl_30, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binaries-*
+          path: dist
+          merge-multiple: true # Flattens all 'binaries-*' into the 'dist' folder
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          name: Release ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }} for ${{ matrix.os }}
+          draft: false
+          prerelease: ${{ github.event_name == 'pull_request' }} # Mark as prerelease if from a PR
+          fail_on_unmatched_files: true
+          files: dist/*
+          generate_release_notes: true
