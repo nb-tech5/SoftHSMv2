@@ -34,6 +34,11 @@
 #include "log.h"
 #include "Generation.h"
 
+#include <mutex>
+#include <chrono>
+#include <stdexcept>
+#include <sstream>
+
 // Factory
 Generation* Generation::create(const std::string path, int umask, bool isToken)
 {
@@ -85,6 +90,55 @@ bool Generation::sync(File &objectFile)
 	return objectFile.seek(0L);
 }
 
+std::string getenv_string(const char *name, const char *defaultValue /* = NULL */)
+{
+#ifdef _WIN32
+	size_t valueSize = 0;
+	char buffer[256];
+	getenv_s(&valueSize, buffer, 256, name);
+	buffer[valueSize] = '\0';
+	const char *pPath = buffer;
+#else
+	const char *pPath = getenv(name);
+#endif
+	if (pPath == nullptr || pPath[0] == '\0')
+	{
+		if(defaultValue == NULL)
+		{
+			std::stringstream msg("Missing env var: ");
+			msg << name;
+			throw std::logic_error(msg.str());
+		}
+		else
+		{
+			return std::string(defaultValue);
+		}
+	}
+	return std::string(pPath);
+}
+
+long stringToLong(const std::string value)
+{
+	std::istringstream str(value);
+	long result;
+	str >> result;
+	if (!str) {
+		if (result == std::numeric_limits<int>::max()) {
+			throw std::logic_error("Overflow!");
+		} else if (result == std::numeric_limits<int>::min()) {
+			throw std::logic_error("Underflow!");
+		} else {
+			throw std::logic_error("Some other parse error");
+		}
+	}
+	return result;
+}
+
+bool cacheGeneration = getenv_string("SOFTHSM2_OBJECT_GENERATION_CACHE_ENABLE", "false") == "true";
+std::chrono::milliseconds cacheGenerationPeriodMs(stringToLong(getenv_string("SOFTHSM2_OBJECT_GENERATION_CACHE_PERIOD", "1000")));
+std::chrono::milliseconds cacheGenerationLastUpdate(0);
+std::mutex cacheGenerationMutex;
+
 // Check if the target was updated
 bool Generation::wasUpdated()
 {
@@ -118,6 +172,15 @@ bool Generation::wasUpdated()
 	}
 	else
 	{
+		if (cacheGeneration) {
+			std::lock_guard<std::mutex> lock(cacheGenerationMutex);
+			if (cacheGenerationLastUpdate > std::chrono::milliseconds(0) &&
+				(std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::system_clock::now().time_since_epoch()) - cacheGenerationLastUpdate) < cacheGenerationPeriodMs)
+			{
+				return false;
+			}
+		}
 		File objectFile(path, umask);
 
 		if (!objectFile.isValid())
@@ -134,6 +197,11 @@ bool Generation::wasUpdated()
 			return true;
 		}
 
+		if (cacheGeneration) {
+			std::lock_guard<std::mutex> lock(cacheGenerationMutex);
+			cacheGenerationLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::system_clock::now().time_since_epoch());
+		}
 		return (onDisk != currentValue);
 	}
 }
