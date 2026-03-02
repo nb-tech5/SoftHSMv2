@@ -162,9 +162,9 @@ void InfoTests::testGetSlotInfoAlt()
 	CRYPTOKI_F_PTR( C_Finalize(NULL_PTR) );
 
 #ifndef _WIN32
-    setenv("SOFTHSM2_CONF", "./softhsm2-alt.conf", 1);
+    setenv("SOFTHSM2_ALT_CONF", "./softhsm2-alt.conf", 1);
 #else
-    setenv("SOFTHSM2_CONF", ".\\softhsm2-alt.conf", 1);
+    setenv("SOFTHSM2_ALT_CONF", ".\\softhsm2-alt.conf", 1);
 #endif
 
 	CK_UTF8CHAR label[32];
@@ -197,9 +197,9 @@ void InfoTests::testGetSlotInfoAlt()
 
 	CRYPTOKI_F_PTR( C_Finalize(NULL_PTR) );
 #ifndef _WIN32
-	setenv("SOFTHSM2_CONF", "./softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", "./softhsm2.conf", 1);
 #else
-	setenv("SOFTHSM2_CONF", ".\\softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", ".\\softhsm2.conf", 1);
 #endif
 }
 #endif // P11_SHARED_LIBRARY
@@ -332,9 +332,9 @@ void InfoTests::testGetMechanismListConfig()
 	CK_MECHANISM_INFO info;
 
 #ifndef _WIN32
-	setenv("SOFTHSM2_CONF", "./softhsm2-mech.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", "./softhsm2-mech.conf", 1);
 #else
-	setenv("SOFTHSM2_CONF", ".\\softhsm2-mech.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", ".\\softhsm2-mech.conf", 1);
 #endif
 
 	// Just make sure that we finalize any previous failed tests
@@ -375,9 +375,9 @@ void InfoTests::testGetMechanismListConfig()
 
 	CRYPTOKI_F_PTR( C_Finalize(NULL_PTR) );
 #ifndef _WIN32
-	setenv("SOFTHSM2_CONF", "./softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", "./softhsm2.conf", 1);
 #else
-	setenv("SOFTHSM2_CONF", ".\\softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", ".\\softhsm2.conf", 1);
 #endif
 }
 
@@ -414,9 +414,9 @@ void InfoTests::testGetMechanismNegativeListConfig()
 	CRYPTOKI_F_PTR( C_Finalize(NULL_PTR) );
 	/* Now try with configuration having negative list */
 #ifndef _WIN32
-	setenv("SOFTHSM2_CONF", "./softhsm2-negative-mech.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", "./softhsm2-negative-mech.conf", 1);
 #else
-	setenv("SOFTHSM2_CONF", ".\\softhsm2-negative-mech.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", ".\\softhsm2-negative-mech.conf", 1);
 #endif
 
 	rv = CRYPTOKI_F_PTR( C_Initialize(NULL_PTR) );
@@ -441,9 +441,9 @@ void InfoTests::testGetMechanismNegativeListConfig()
 
 	CRYPTOKI_F_PTR( C_Finalize(NULL_PTR) );
 #ifndef _WIN32
-	setenv("SOFTHSM2_CONF", "./softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", "./softhsm2.conf", 1);
 #else
-	setenv("SOFTHSM2_CONF", ".\\softhsm2.conf", 1);
+	setenv("SOFTHSM2_ALT_CONF", ".\\softhsm2.conf", 1);
 #endif
 }
 #endif // P11_SHARED_LIBRARY

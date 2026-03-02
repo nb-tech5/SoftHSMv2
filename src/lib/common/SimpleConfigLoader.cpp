@@ -263,7 +263,7 @@ static char *get_env_var_path(void)
 	LPSTR value = NULL;
 	DWORD size = 0;
 
-	size = GetEnvironmentVariableA("SOFTHSM2_CONF", value, size);
+	size = GetEnvironmentVariableA("SOFTHSM2_ALT_CONF", value, size);
 	if (size == 0) {
 		return NULL;
 	}
@@ -273,7 +273,7 @@ static char *get_env_var_path(void)
 		return NULL;
 	}
 
-	if (GetEnvironmentVariableA("SOFTHSM2_CONF", value, size) != (size - 1)) {
+	if (GetEnvironmentVariableA("SOFTHSM2_ALT_CONF", value, size) != (size - 1)) {
 		free(value);
 		return NULL;
 	}
@@ -282,7 +282,7 @@ static char *get_env_var_path(void)
 
 #else
 
-	char *value = getenv("SOFTHSM2_CONF");
+	char *value = getenv("SOFTHSM2_ALT_CONF");
 
 	if (value == NULL) {
 		return value;
