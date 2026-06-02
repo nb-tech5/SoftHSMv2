@@ -134,16 +134,32 @@ long stringToLong(const std::string value)
 	return result;
 }
 
-bool cacheGeneration = getenv_string("SOFTHSM2_OBJECT_GENERATION_CACHE_ENABLE", "false") == "true";
-std::chrono::milliseconds cacheGenerationPeriodMs(stringToLong(getenv_string("SOFTHSM2_OBJECT_GENERATION_CACHE_PERIOD", "1000")));
-std::chrono::milliseconds cacheGenerationLastUpdate(0);
-std::mutex cacheGenerationMutex;
+bool cacheTokenGeneration = getenv_string("SOFTHSM2_TOKEN_GENERATION_CACHE_ENABLE", "false") == "true";
+std::chrono::milliseconds cacheTokenGenerationPeriodMs(stringToLong(getenv_string("SOFTHSM2_TOKEN_GENERATION_CACHE_PERIOD", "1000")));
+std::chrono::milliseconds cacheTokenGenerationLastUpdate(0);
+std::mutex cacheTokenGenerationMutex;
+
+bool cacheObjectGeneration = getenv_string("SOFTHSM2_OBJECT_GENERATION_CACHE_ENABLE", "false") == "true";
+std::chrono::milliseconds cacheObjectGenerationPeriodMs(stringToLong(getenv_string("SOFTHSM2_OBJECT_GENERATION_CACHE_PERIOD", "1000")));
+std::chrono::milliseconds cacheObjectGenerationLastUpdate(0);
+std::mutex cacheObjectGenerationMutex;
 
 // Check if the target was updated
 bool Generation::wasUpdated()
 {
 	if (isToken)
 	{
+		if (cacheTokenGeneration) {
+			std::lock_guard<std::mutex> lock(cacheTokenGenerationMutex);
+			if (cacheTokenGenerationLastUpdate > std::chrono::milliseconds(0) &&
+				(std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::system_clock::now().time_since_epoch()) - cacheTokenGenerationLastUpdate) < cacheTokenGenerationPeriodMs)
+			{
+				DEBUG_MSG("Token generation cache hit, skipping disk read");
+				return false;
+			}
+		}
+
 		MutexLocker lock(genMutex);
 
 		File genFile(path, umask);
@@ -162,6 +178,13 @@ bool Generation::wasUpdated()
 			return true;
 		}
 
+		if (cacheTokenGeneration) {
+			std::lock_guard<std::mutex> lock(cacheTokenGenerationMutex);
+			cacheTokenGenerationLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::system_clock::now().time_since_epoch());
+			DEBUG_MSG("Token generation cache miss, read from disk, cached until");
+		}
+
 		if (onDisk != currentValue)
 		{
 			currentValue = onDisk;
@@ -172,12 +195,13 @@ bool Generation::wasUpdated()
 	}
 	else
 	{
-		if (cacheGeneration) {
-			std::lock_guard<std::mutex> lock(cacheGenerationMutex);
-			if (cacheGenerationLastUpdate > std::chrono::milliseconds(0) &&
+		if (cacheObjectGeneration) {
+			std::lock_guard<std::mutex> lock(cacheObjectGenerationMutex);
+			if (cacheObjectGenerationLastUpdate > std::chrono::milliseconds(0) &&
 				(std::chrono::duration_cast<std::chrono::milliseconds>(
-				std::chrono::system_clock::now().time_since_epoch()) - cacheGenerationLastUpdate) < cacheGenerationPeriodMs)
+				std::chrono::system_clock::now().time_since_epoch()) - cacheObjectGenerationLastUpdate) < cacheObjectGenerationPeriodMs)
 			{
+				DEBUG_MSG("Object generation cache hit, skipping disk read");
 				return false;
 			}
 		}
@@ -197,10 +221,11 @@ bool Generation::wasUpdated()
 			return true;
 		}
 
-		if (cacheGeneration) {
-			std::lock_guard<std::mutex> lock(cacheGenerationMutex);
-			cacheGenerationLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(
+		if (cacheObjectGeneration) {
+			std::lock_guard<std::mutex> lock(cacheObjectGenerationMutex);
+			cacheObjectGenerationLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::system_clock::now().time_since_epoch());
+			DEBUG_MSG("Object generation cache miss, read from disk");
 		}
 		return (onDisk != currentValue);
 	}
